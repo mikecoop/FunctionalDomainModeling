@@ -1,71 +1,6 @@
-﻿
-module Domain
+﻿module OrderTaking.Functions
 
-    type Undefined = exn
-
-    type OrderId = private OrderId of string
-
-    module OrderId =
-        let create str =
-            if System.String.IsNullOrEmpty(str) then
-                failwith "OrderId must not be null or empty"
-            elif str.Length > 50 then
-                failwith "OrderId must not be more than 50 chars"
-            else
-                OrderId str
-
-        let value (OrderId str) = str
-
-    type String50 = string
-    module String50 =
-        let create str = str
-        let createOption str = str
-
-    type EmailAddress = string
-    module EmailAddress =
-        let create str = str
-
-    type ZipCode = string
-    module ZipCode =
-        let create str = str
-
-    type UnvalidatedCustomerInfo = {
-        FirstName : string
-        LastName : string
-        EmailAddress : string }
-
-    type PersonalName = {
-        FirstName : String50
-        LastName : String50 }
-
-    type CustomerInfo = {
-        Name : PersonalName
-        EmailAddress : EmailAddress }
-
-    type Address = {
-        AddressLine1 : String50
-        AddressLine2 : String50 option
-        AddressLine3 : String50 option
-        AddressLine4 : String50 option
-        City : String50
-        ZipCode : String50 }
-
-    type UnvalidatedAddress = Undefined
-    type CheckedAddress = CheckedAddress of Address
-    type CheckProductCodeExists = Undefined
-
-    type UnvalidatedOrder = {
-        OrderId : string
-        CustomerInfo : UnvalidatedCustomerInfo
-        ShippingAddress : Undefined }
-
-    type ValidatedOrder = {
-        OrderId : OrderId
-        CustomerInfo : CustomerInfo
-        ShippingAddress : Address }
-
-    type CheckAddressExists =
-        UnvalidatedAddress -> CheckedAddress
+    open OrderTaking.Domain
 
     type ValidateOrder =
         CheckProductCodeExists
@@ -117,6 +52,54 @@ module Domain
         // return the address
         address
 
+    let toOrderQuantity productCode quantity =
+        let orderQuantity =
+            match productCode with
+            | Widget _ ->
+                quantity
+                |> int
+                |> UnitQuantity.create
+                |> Result.map OrderQuantity.Unit
+            | Gizmo _ ->
+                quantity 
+                |> KilogramQuantity.create
+                |> Result.map OrderQuantity.Kilogram
+        match orderQuantity with
+        | Error e -> failwith e
+        | Ok q -> q
+        
+
+    let predicateToPassThru errorMsg f x =
+        if f x then
+            x
+        else
+            failwith errorMsg
+
+    let toProductCode (checkProductCodeExists:CheckProductCodeExists) productCode =
+        let checkProduct productCode =
+            let errorMsg = sprintf "Invalid %A" productCode
+            predicateToPassThru errorMsg checkProductCodeExists productCode
+        productCode
+        |> ProductCode.create
+        |> checkProduct
+
+    let toValidatedOrderLine checkProductCodeExists
+        (unvalidatedOrderLine:UnvalidatedOrderLine) =
+        let orderLineId =
+            unvalidatedOrderLine.OrderLineId
+            |> OrderLineId.create
+        let productCode =
+            unvalidatedOrderLine.ProductCode
+            |> toProductCode checkProductCodeExists
+        let quantity =
+            unvalidatedOrderLine.Quantity
+            |> toOrderQuantity productCode
+        let validatedOrderLine = {
+            OrderLineId = orderLineId
+            ProductCode = productCode
+            Quantity = quantity }
+        validatedOrderLine
+
     let validateOrder : ValidateOrder =
         fun checkProductCodeExists checkAddressExists unvalidatedOrder ->
             
@@ -132,6 +115,11 @@ module Domain
                 unvalidatedOrder.ShippingAddress
                 |> toAddress checkAddressExists
 
+            let orderLines =
+                unvalidatedOrder.OrderLines
+                |> List.map (toValidatedOrderLine checkProductCodeExists)
+
             { OrderId = orderId
               CustomerInfo = customerInfo
-              ShippingAddress = shippingAddress }
+              ShippingAddress = shippingAddress
+              OrderLines = orderLines }

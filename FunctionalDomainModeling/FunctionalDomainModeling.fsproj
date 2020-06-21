@@ -6,8 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
-    <Compile Include="Domain.fs" />
     <Compile Include="OrderTaking.Domain.fs" />
+    <Compile Include="OrderTaking.Functions.fs" />
     <Compile Include="Program.fs" />
     <None Include="Scratchpad.fsx" />
   </ItemGroup>
