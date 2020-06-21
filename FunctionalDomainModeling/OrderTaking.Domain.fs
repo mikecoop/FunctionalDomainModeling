@@ -24,12 +24,16 @@ type KilogramQuantity = private KilogramQuantity of decimal<kg>
 type OrderQuantity =
     | Unit of UnitQuantity
     | Kilogram of KilogramQuantity
+module OrderQuantity =
+    let value = function
+    | Unit (UnitQuantity u) -> decimal u
+    | Kilogram (KilogramQuantity k) -> decimal k
 
 type String50 = private String50 of string
 module String50 =
     let create str = (String50 str)
     let createOption str = Some (String50 str)
-        
+
 type EmailAddress = private EmailAddress of string
 module EmailAddress =
     let create str = (EmailAddress str)
@@ -79,8 +83,18 @@ type Address = {
 
 type ShippingAddress = Address
 type BillingAddress = Address
-type Price = Undefined
-type BillingAmount = Undefined
+type Price = Price of decimal
+module Price =
+    let value (Price p) = p
+    let create p = Price p
+    let multiply qty (Price p) =
+        create (qty * p)
+
+type BillingAmount = BillingAmount of decimal
+module BillingAmount =
+    let sumPrices prices =
+        let total = prices |> List.sumBy Price.value
+        BillingAmount total
 
 type Order = {
     Id : OrderId // id for entity
@@ -94,8 +108,14 @@ and OrderLine = {
     Id : OrderLineId // id for entity
     OrderId : OrderId // order reference
     ProductCode : ProductCode
-    OrderQuantity : OrderQuantity
+    Quantity : OrderQuantity
     Price : Price }
+
+type PricedOrderLine = {
+    OrderLineId : OrderLineId
+    ProductCode : ProductCode
+    Quantity : OrderQuantity
+    LinePrice : Price }
 
 type UnvalidatedAddress = {
     AddressLine1 : string
@@ -118,6 +138,7 @@ type UnvalidatedOrder = {
     OrderId : string
     CustomerInfo : UnvalidatedCustomerInfo
     ShippingAddress : UnvalidatedAddress
+    BillingAddress : UnvalidatedAddress
     OrderLines : UnvalidatedOrderLine list }
 
 type CheckAddressExists =
@@ -132,7 +153,20 @@ type ValidatedOrder = {
     OrderId : OrderId
     CustomerInfo : CustomerInfo
     ShippingAddress : Address
-    OrderLines : ValidatedOrderLine list }
+    BillingAddress : Address
+    Lines : ValidatedOrderLine list }
+
+type PricedOrder = {
+    OrderId : OrderId
+    CustomerInfo : CustomerInfo
+    ShippingAddress : ShippingAddress
+    BillingAddress : BillingAddress
+    Lines : PricedOrderLine list
+    AmountToBill : BillingAmount }
+
+type GetProductPrice = ProductCode -> Price
+
+type PriceOrder = GetProductPrice -> ValidatedOrder -> PricedOrder
 
 type PlaceOrderEvents = {
     AcknowledgementSent : Undefined

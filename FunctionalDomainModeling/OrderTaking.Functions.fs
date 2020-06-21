@@ -59,15 +59,15 @@
                 quantity
                 |> int
                 |> UnitQuantity.create
-                |> Result.map OrderQuantity.Unit
+                |> Result.map Unit
             | Gizmo _ ->
-                quantity 
+                quantity
                 |> KilogramQuantity.create
-                |> Result.map OrderQuantity.Kilogram
+                |> Result.map Kilogram
         match orderQuantity with
         | Error e -> failwith e
         | Ok q -> q
-        
+
 
     let predicateToPassThru errorMsg f x =
         if f x then
@@ -102,7 +102,7 @@
 
     let validateOrder : ValidateOrder =
         fun checkProductCodeExists checkAddressExists unvalidatedOrder ->
-            
+
             let orderId =
                 unvalidatedOrder.OrderId
                 |> OrderId.create
@@ -115,6 +115,10 @@
                 unvalidatedOrder.ShippingAddress
                 |> toAddress checkAddressExists
 
+            let billingAddress =
+                unvalidatedOrder.BillingAddress
+                |> toAddress checkAddressExists
+
             let orderLines =
                 unvalidatedOrder.OrderLines
                 |> List.map (toValidatedOrderLine checkProductCodeExists)
@@ -122,4 +126,34 @@
             { OrderId = orderId
               CustomerInfo = customerInfo
               ShippingAddress = shippingAddress
-              OrderLines = orderLines }
+              BillingAddress = billingAddress
+              Lines = orderLines }
+
+    let toPricedOrderLine getProductPrice (line:ValidatedOrderLine) : PricedOrderLine =
+        let qty = line.Quantity |> OrderQuantity.value
+        let price = line.ProductCode |> getProductPrice
+        let linePrice = price |> Price.multiply qty
+        {
+            OrderLineId = line.OrderLineId
+            ProductCode = line.ProductCode
+            Quantity = line.Quantity
+            LinePrice = linePrice
+        }
+
+    let priceOrder : PriceOrder =
+        fun getProductPrice (validatedOrder:ValidatedOrder) ->
+            let lines : PricedOrderLine list =
+                validatedOrder.Lines
+                |> List.map (toPricedOrderLine getProductPrice)
+            let amountToBill =
+                lines
+                |> List.map (fun line -> line.LinePrice)
+                |> BillingAmount.sumPrices
+            let pricedOrder : PricedOrder = {
+                OrderId = validatedOrder.OrderId
+                CustomerInfo = validatedOrder.CustomerInfo
+                ShippingAddress = validatedOrder.ShippingAddress
+                BillingAddress = validatedOrder.BillingAddress
+                Lines = lines
+                AmountToBill = amountToBill }
+            pricedOrder
