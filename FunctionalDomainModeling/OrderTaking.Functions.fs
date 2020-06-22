@@ -1,5 +1,6 @@
 ﻿module OrderTaking.Functions
 
+    open SimpleTypes
     open OrderTaking.Domain
 
     type ValidateOrder =
@@ -208,7 +209,13 @@
                 yield! events3
             ]
 
-    let placeOrder : PlaceOrderWorkflow =
+    let placeOrder
+        (checkProductCodeExists:CheckProductCodeExists)
+        (checkAddressExists:CheckAddressExists)
+        getProductPrice
+        createOrderAcknowledgementLetter
+        sendOrderAcknowledgement
+        : PlaceOrderWorkflow =
         fun unvaliatedOrder ->
             let validatedOrder =
                 unvaliatedOrder
@@ -218,7 +225,7 @@
                 |> priceOrder getProductPrice
             let acknowledgementOption =
                 pricedOrder
-                |> acknowledgeOrder createAcknowledgementLetter sendOrderAcknowledgement
+                |> acknowledgeOrder createOrderAcknowledgementLetter sendOrderAcknowledgement
             let events =
                 createEvents pricedOrder acknowledgementOption
             events

@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
+    <Compile Include="SimpleTypes.fs"/>
     <Compile Include="OrderTaking.Domain.fs" />
     <Compile Include="OrderTaking.Functions.fs" />
     <Compile Include="Program.fs" />
