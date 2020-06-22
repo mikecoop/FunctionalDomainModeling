@@ -133,12 +133,10 @@
         let qty = line.Quantity |> OrderQuantity.value
         let price = line.ProductCode |> getProductPrice
         let linePrice = price |> Price.multiply qty
-        {
-            OrderLineId = line.OrderLineId
-            ProductCode = line.ProductCode
-            Quantity = line.Quantity
-            LinePrice = linePrice
-        }
+        { OrderLineId = line.OrderLineId
+          ProductCode = line.ProductCode
+          Quantity = line.Quantity
+          LinePrice = linePrice }
 
     let priceOrder : PriceOrder =
         fun getProductPrice (validatedOrder:ValidatedOrder) ->
@@ -157,3 +155,70 @@
                 Lines = lines
                 AmountToBill = amountToBill }
             pricedOrder
+
+    let acknowledgeOrder : AcknowledgeOrder =
+        fun createAcknowledgementLetter sendAcknowledgement pricedOrder ->
+            let letter = createAcknowledgementLetter pricedOrder
+            let acknowledgement = {
+                EmailAddress = pricedOrder.CustomerInfo.EmailAddress
+                Letter = letter }
+            match sendAcknowledgement acknowledgement with
+            | Sent ->
+                let event = {
+                    OrderId = pricedOrder.OrderId
+                    EmailAddress = pricedOrder.CustomerInfo.EmailAddress }
+                Some event
+            | NotSent ->
+                None
+
+    let createBillingEvent (placedOrder:PricedOrder) : BillableOrderPlaced option =
+        let billingAmount = placedOrder.AmountToBill |> BillingAmount.value
+        if billingAmount > 0M then
+            let order = {
+                OrderId = placedOrder.OrderId
+                BillingAddress = placedOrder.BillingAddress
+                AmountToBill = placedOrder.AmountToBill }
+            Some order
+        else
+            None
+
+    let listOfOption opt =
+        match opt with
+        | Some x -> [x]
+        | None -> [ ]
+
+    let createEvents : CreateEvents =
+        fun pricedOrder acknowledgmentEventOpt ->
+            let events1 =
+                pricedOrder
+                |> PlaceOrderEvent.OrderPlaced
+                |> List.singleton
+            let events2 =
+                acknowledgmentEventOpt
+                |> Option.map PlaceOrderEvent.AcknowledgementSent
+                |> listOfOption
+            let events3 =
+                pricedOrder
+                |> createBillingEvent
+                |> Option.map PlaceOrderEvent.BillableOrderPlaced
+                |> listOfOption
+            [
+                yield! events1
+                yield! events2
+                yield! events3
+            ]
+
+    let placeOrder : PlaceOrderWorkflow =
+        fun unvaliatedOrder ->
+            let validatedOrder =
+                unvaliatedOrder
+                |> validateOrder checkProductCodeExists checkAddressExists
+            let pricedOrder =
+                validatedOrder
+                |> priceOrder getProductPrice
+            let acknowledgementOption =
+                pricedOrder
+                |> acknowledgeOrder createAcknowledgementLetter sendOrderAcknowledgement
+            let events =
+                createEvents pricedOrder acknowledgementOption
+            events
