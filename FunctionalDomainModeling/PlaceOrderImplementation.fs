@@ -1,13 +1,7 @@
-﻿module OrderTaking.Functions
+﻿module PlaceOrderImplementation
 
     open SimpleTypes
-    open OrderTaking.Domain
-
-    type ValidateOrder =
-        CheckProductCodeExists
-         -> CheckAddressExists
-         -> UnvalidatedOrder
-         -> ValidatedOrder
+    open PlaceOrderWorkflow
 
     let toCustomerInfo (customer:UnvalidatedCustomerInfo) : CustomerInfo =
         let firstName = customer.FirstName |> String50.create

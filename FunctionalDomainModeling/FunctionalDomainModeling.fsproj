@@ -1,4 +1,3 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -6,9 +5,9 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
-    <Compile Include="SimpleTypes.fs"/>
-    <Compile Include="OrderTaking.Domain.fs" />
-    <Compile Include="OrderTaking.Functions.fs" />
+    <Compile Include="SimpleTypes.fs" />
+    <Compile Include="PlaceOrderWorkflow.fs" />
+    <Compile Include="PlaceOrderImplementation.fs" />
     <Compile Include="Program.fs" />
     <None Include="Scratchpad.fsx" />
   </ItemGroup>
